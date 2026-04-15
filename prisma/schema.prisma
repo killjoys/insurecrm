@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../server/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enums with simple identifiers (no spaces/hyphens) use Prisma enums.
+// Fields whose values contain spaces or hyphens (e.g. "Whole Life",
+// "Semi-Annual", "In Progress") are stored as plain String to avoid
+// the Prisma 7 @map enum bug and keep the existing API contract intact.
+
+enum ClientTier {
+  VIP
+  Standard
+}
+
+enum LeadStage {
+  New
+  Contacted
+  Quoted
+  Closed
+}
+
+enum PolicyCategory {
+  Life
+  Health
+  PA
+  Motor
+  Fire
+  Other
+}
+
+enum PolicyStatus {
+  Pending
+  Inforced
+  Lapsed
+  Cancelled
+  Matured
+}
+
+enum TicketPriority {
+  Low
+  Medium
+  High
+  Urgent
+}
+
+// ─── Models ─────────────────────────────────────────────────────────
+
+model Client {
+  id          String     @id @default(cuid())
+  name        String
+  phone       String
+  email       String     @default("")
+  idCard      String     @default("")
+  dateOfBirth String     @default("")
+  address     String     @default("")
+  tier        ClientTier @default(Standard)
+  createdAt   String
+  notes       String     @default("")
+
+  policies Policy[]
+  tickets  Ticket[]
+  leads    Lead[]   @relation("ConvertedClient")
+  tasks    Task[]
+
+  @@map("clients")
+}
+
+model Lead {
+  id                  String         @id @default(cuid())
+  name                String
+  phone               String
+  email               String         @default("")
+  source              String         @default("")
+  stage               LeadStage      @default(New)
+  interest            PolicyCategory @default(Life)
+  notes               String         @default("")
+  createdAt           String
+  updatedAt           String
+  convertedToClientId String?
+  convertedToClient   Client?        @relation("ConvertedClient", fields: [convertedToClientId], references: [id])
+
+  @@map("leads")
+}
+
+model Policy {
+  id               String         @id @default(cuid())
+  clientId         String
+  client           Client         @relation(fields: [clientId], references: [id])
+  clientName       String
+  policyNumber     String         @unique
+  category         PolicyCategory
+  lifeSubtype      String?
+  provider         String
+  planName         String
+  premium          Float
+  premiumFrequency String
+  sumInsured       Float
+  status           PolicyStatus   @default(Pending)
+  effectiveDate    String
+  renewalDate      String
+  maturityDate     String?
+  notes            String         @default("")
+
+  @@map("policies")
+}
+
+model Ticket {
+  id             String         @id @default(cuid())
+  clientId       String
+  client         Client         @relation(fields: [clientId], references: [id])
+  clientName     String
+  subject        String
+  description    String         @default("")
+  priority       TicketPriority @default(Medium)
+  status         String         @default("Open")
+  createdAt      String
+  updatedAt      String
+
+  @@map("tickets")
+}
+
+model Task {
+  id                String  @id @default(cuid())
+  title             String
+  description       String  @default("")
+  dueDate           String
+  completed         Boolean @default(false)
+  relatedClientId   String?
+  relatedClient     Client? @relation(fields: [relatedClientId], references: [id])
+  relatedClientName String?
+
+  @@map("tasks")
+}

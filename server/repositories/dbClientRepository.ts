@@ -1,75 +1,81 @@
 import type { ClientRepository } from './clientRepository.js';
 import type { Client, CreateClientDto, UpdateClientDto } from '../types.js';
+import prisma from '../db.js';
 
-/**
- * Database-backed implementation of ClientRepository.
- *
- * This is a stub — replace the body of each method with real DB queries
- * (e.g. using knex, prisma, typeorm, or raw pg/mysql2) when you're ready
- * to connect to a real database.
- *
- * Example with a hypothetical `db` query builder:
- *
- *   async findAll() {
- *     return db('clients').select('*').orderBy('created_at', 'desc');
- *   }
- */
 export class DbClientRepository implements ClientRepository {
-  // constructor(private readonly db: any) {}
-  // Pass your DB connection/pool/ORM instance via the constructor.
-
   async findAll(): Promise<Client[]> {
-    // TODO: Replace with real query
-    // return this.db('clients').select('*').orderBy('created_at', 'desc');
-    throw new Error(
-      'DbClientRepository.findAll() is not implemented. ' +
-      'Connect a real database and replace this stub.',
-    );
+    const rows = await prisma.client.findMany({ orderBy: { createdAt: 'desc' } });
+    return rows.map(toClient);
   }
 
   async findById(id: string): Promise<Client | null> {
-    // TODO: Replace with real query
-    // return this.db('clients').where({ id }).first() ?? null;
-    throw new Error(
-      `DbClientRepository.findById(${id}) is not implemented.`,
-    );
+    const row = await prisma.client.findUnique({ where: { id } });
+    return row ? toClient(row) : null;
   }
 
   async search(query: string): Promise<Client[]> {
-    // TODO: Replace with real query
-    // return this.db('clients')
-    //   .where('name', 'ilike', `%${query}%`)
-    //   .orWhere('phone', 'like', `%${query}%`)
-    //   .orWhere('email', 'ilike', `%${query}%`);
-    throw new Error(
-      `DbClientRepository.search(${query}) is not implemented.`,
-    );
+    const rows = await prisma.client.findMany({
+      where: {
+        OR: [
+          { name: { contains: query, mode: 'insensitive' } },
+          { phone: { contains: query } },
+          { email: { contains: query, mode: 'insensitive' } },
+        ],
+      },
+    });
+    return rows.map(toClient);
   }
 
-  async create(_dto: CreateClientDto): Promise<Client> {
-    // TODO: Replace with real query
-    // const [client] = await this.db('clients').insert({ ...dto }).returning('*');
-    // return client;
-    throw new Error(
-      'DbClientRepository.create() is not implemented.',
-    );
+  async create(dto: CreateClientDto): Promise<Client> {
+    const row = await prisma.client.create({
+      data: {
+        name: dto.name,
+        phone: dto.phone,
+        email: dto.email ?? '',
+        idCard: dto.idCard ?? '',
+        dateOfBirth: dto.dateOfBirth ?? '',
+        address: dto.address ?? '',
+        tier: dto.tier ?? 'Standard',
+        createdAt: new Date().toISOString().split('T')[0],
+        notes: dto.notes ?? '',
+      },
+    });
+    return toClient(row);
   }
 
-  async update(id: string, _dto: UpdateClientDto): Promise<Client | null> {
-    // TODO: Replace with real query
-    // const [client] = await this.db('clients').where({ id }).update({ ...dto }).returning('*');
-    // return client ?? null;
-    throw new Error(
-      `DbClientRepository.update(${id}) is not implemented.`,
-    );
+  async update(id: string, dto: UpdateClientDto): Promise<Client | null> {
+    try {
+      const row = await prisma.client.update({
+        where: { id },
+        data: Object.fromEntries(Object.entries(dto).filter(([, v]) => v !== undefined)),
+      });
+      return toClient(row);
+    } catch {
+      return null;
+    }
   }
 
   async delete(id: string): Promise<boolean> {
-    // TODO: Replace with real query
-    // const count = await this.db('clients').where({ id }).del();
-    // return count > 0;
-    throw new Error(
-      `DbClientRepository.delete(${id}) is not implemented.`,
-    );
+    try {
+      await prisma.client.delete({ where: { id } });
+      return true;
+    } catch {
+      return false;
+    }
   }
+}
+
+function toClient(row: any): Client {
+  return {
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    email: row.email,
+    idCard: row.idCard,
+    dateOfBirth: row.dateOfBirth,
+    address: row.address,
+    tier: row.tier,
+    createdAt: row.createdAt,
+    notes: row.notes,
+  };
 }
