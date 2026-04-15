@@ -1,5 +1,6 @@
 node_modules
 dist
+server/generated
 .git
 .DS_Store
 *.md
